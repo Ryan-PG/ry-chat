@@ -1,9 +1,17 @@
 import streamlit as st
 from openai import OpenAI
 
+import dotenv
+import os
+dotenv.load_dotenv()
+
+ollama_api_key = os.environ.get("OLLAMA_API_KEY")
+nvidia_api_key = os.environ.get("NVIDIA_API_KEY")
+openai_api_key = os.environ.get("OPENAI_API_KEY")
+
 st.set_page_config(page_title="LLM Chat", layout="wide")
 
-st.title("💬 OpenAI / Ollama Chat")
+st.title("💬 OpenAI / Ollama Test Chat")
 
 # Sidebar
 with st.sidebar:
@@ -11,7 +19,7 @@ with st.sidebar:
 
     provider = st.selectbox(
         "Provider",
-        ["OpenAI", "Ollama"]
+        ["Ollama", "OpenAI", "NVIDIA"]
     )
 
     if provider == "OpenAI":
@@ -21,9 +29,21 @@ with st.sidebar:
         )
         api_key = st.text_input(
             "API Key",
-            type="password"
+            type="password",
+            value=openai_api_key if nvidia_api_key else ""
         )
         default_model = "gpt-5"
+    elif provider == "NVIDIA":
+        base_url = st.text_input(
+            "Base URL",
+            value="https://integrate.api.nvidia.com/v1"
+        )
+        api_key = st.text_input(
+            "API Key",
+            type="password",
+            value=nvidia_api_key if nvidia_api_key else ""
+        )
+        default_model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
     else:
         base_url = st.text_input(
             "Base URL",
@@ -31,8 +51,8 @@ with st.sidebar:
         )
         api_key = st.text_input(
             "API Key",
-            value="ollama",
-            type="password"
+            type="password",
+            value=ollama_api_key if ollama_api_key else ""
         )
         default_model = "llama3.1"
 
