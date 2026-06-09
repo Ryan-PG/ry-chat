@@ -1,16 +1,11 @@
 import streamlit as st
-import urllib.request
-import json
+from openai import OpenAI
 import base64
 import time
-import os
 
-# Optional fallback if python-dotenv isn't loaded in stlite browser context
-try:
-    import dotenv
-    dotenv.load_dotenv()
-except ImportError:
-    pass
+import dotenv
+import os
+dotenv.load_dotenv()
 
 ollama_api_key = os.environ.get("OLLAMA_API_KEY")
 nvidia_api_key = os.environ.get("NVIDIA_API_KEY")
@@ -39,7 +34,7 @@ with st.sidebar:
             type="password",
             value=openai_api_key if openai_api_key else ""
         )
-        default_model = "gpt-4o-mini"
+        default_model = "gpt-5"
     elif provider == "NVIDIA":
         base_url = st.text_input(
             "Base URL",
@@ -133,67 +128,34 @@ if prompt:
         placeholder = st.empty()
         
         try:
-            # Clean trailing slash variations
-            clean_url = base_url.rstrip("/") + "/chat/completions"
-            
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": model,
-                "messages": st.session_state.messages,
-                "stream": True
-            }
-            
-            req = urllib.request.Request(
-                url=clean_url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers=headers,
-                method="POST"
+            client = OpenAI(
+                api_key=api_key,
+                base_url=base_url,
             )
 
+            # Start timing before the network request
             start_time = time.time()
+
+            stream = client.chat.completions.create(
+                model=model,
+                messages=st.session_state.messages,
+                stream=True,
+            )
+
             full_response = ""
-            
-            with urllib.request.urlopen(req) as response:
-                buffer = ""
-                while True:
-                    chunk = response.read(1024)
-                    if not chunk:
-                        break
-                    
-                    buffer += chunk.decode("utf-8")
-                    
-                    while "\n" in buffer:
-                        line, buffer = buffer.split("\n", 1)
-                        line = line.strip()
-                        
-                        if not line or line == "data: [DONE]":
-                            continue
-                        
-                        if line.startswith("data: "):
-                            try:
-                                json_str = line[6:]
-                                data_chunk = json.loads(json_str)
-                                
-                                choices = data_chunk.get("choices", [])
-                                if choices and "delta" in choices[0]:
-                                    # Fallback safely to empty string if 'content' is missing or explicitly None
-                                    delta = choices[0]["delta"].get("content") or ""
-                                    
-                                    if delta:
-                                        full_response += delta
-                                        placeholder.markdown(full_response + "▌")
-                            except json.JSONDecodeError:
-                                continue
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    delta = chunk.choices[0].delta.content
+                    full_response += delta
+                    placeholder.markdown(full_response + "▌")
 
             # Calculate total generation duration
             latency = time.time() - start_time
             
             # Estimate token count (Total Characters / 4)
             estimated_tokens = len(full_response) / 4
+            
+            # Prevent DivisionByZero if response was instantaneous or empty
             tokens_per_sec = estimated_tokens / latency if latency > 0 else 0
 
             # Render final output with stats
@@ -213,4 +175,4 @@ if prompt:
             st.rerun()
 
         except Exception as e:
-            st.error(f"Request Error: {str(e)}")
+            st.error(str(e))
