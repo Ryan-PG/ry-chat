@@ -1,4 +1,4 @@
-# Multi-Provider LLM Chat Interface 💬
+# Ry Chat (Multi-Provider LLM Chat Interface 💬)
 
 A versatile, lightweight Streamlit web application that provides a unified chat interface for OpenAI, NVIDIA NIM, and local Ollama language models. It features real-time response streaming, image/document upload capabilities, and live performance metrics (latency and tokens per second).
 
